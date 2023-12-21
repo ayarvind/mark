@@ -1,0 +1,7 @@
+{
+  "name": "mark",
+  "displayName": "mark",
+  "appName": "Mark",
+  "BASE_URL" :  "http://localhost:9000/api/v1",
+  "API_KEY" : "b1b15e88fa797225412429c1c50c122a1"
+}

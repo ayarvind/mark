@@ -108,6 +108,7 @@ const styles = StyleSheet.create({
     },
     bottomView: {
         flex: 1,
+        marginTop: 10
 
     }
 })

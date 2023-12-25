@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, Button, StyleSheet, Alert, BackHandler, Pressable, SafeAreaView } from 'react-native';
+import { View, Text, TextInput, Button, StyleSheet, Alert, BackHandler, Pressable, SafeAreaView, Image } from 'react-native';
 import Colors from '../common/colors';
 import Icon from 'react-native-vector-icons/dist/MaterialIcons';
 import { ScrollView, TouchableOpacity } from 'react-native-gesture-handler';
@@ -14,6 +14,13 @@ import RegisterSchema from '../common/RegisterSchema';
 import genders from '../data/gender'
 import DatePicker from 'react-native-date-picker';
 import parseDate from '../common/parseDate';
+import SelectFile from '../components/SelectFile';
+import fileTypes from '../common/fileType';
+import { DocumentPickerResponse } from 'react-native-document-picker';
+import User from '../auths/User';
+import { UserProps } from '../auths/Auth';
+
+
 const Register = ({ navigation }: { navigation: any }): React.JSX.Element => {
   const [step, setStep] = useState(1);
   const [fullName, setFullName] = useState('');
@@ -21,20 +28,42 @@ const Register = ({ navigation }: { navigation: any }): React.JSX.Element => {
   const [password, setPassword] = useState('');
   const [dob, setDob] = useState(new Date(new Date().setFullYear(new Date().getFullYear() - 16)).toISOString());
   const [gender, setGender] = useState('');
-  const [mobileNumber, setMobileNumber] = useState('');
+  // const [mobileNumber, setMobileNumber] = useState('');
   const [username, setUsername] = useState('');
-  const [otp, setOtp] = useState('');
+  const [profileImage, setProfileImage] = useState<DocumentPickerResponse>({} as DocumentPickerResponse);
+  const [otp, setOtp] = useState<string>('');
   const [openGender, setOpenGender] = useState(false);
   const [openDatePicker, setOpenDatePicker] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [isInputValid, setIsInputValid] = useState({
-    fullName: true,
-    email: true,
-    password: true,
-    mobileNumber: true,
-    username: true,
-    dob: true,
-    gender: true
+    fullName: {
+      isValid: false,
+      message: "Your name:",
+    },
+    email: {
+      isValid: false,
+      message: "Your email:",
+    },
 
+    password: {
+      isValid: false,
+      message: "Set a password:",
+    },
+
+    username: {
+      isValid: false,
+      message: "Your username:",
+
+    },
+    dob: {
+      isValid: false,
+      message: "Select your date of birth:",
+
+    },
+    gender: {
+      isValid: false,
+      message: "Select your gender:",
+    }
   });
   const [verifyOtp, setVerifyOtp] = useState({
     showOtpField: false,
@@ -48,6 +77,20 @@ const Register = ({ navigation }: { navigation: any }): React.JSX.Element => {
       style: 'dark-content'
     }))
   }, [])
+
+  useEffect(() => {
+    setUsername(email.split('@')[0]);
+    setIsInputValid((prev) => ({
+      ...prev, username: {
+        isValid: true,
+        message: "",
+      }
+    }))
+
+  }, [email])
+
+
+
   // Override back button press
   useEffect(() => {
     const backAction = () => {
@@ -68,14 +111,37 @@ const Register = ({ navigation }: { navigation: any }): React.JSX.Element => {
     return () => backHandler.remove();
   }, [step, navigation]);
 
+
   const handleNextStep = () => {
     if (step < 3) {
-      setStep(step + 1);
+      switch (step) {
+        case 1:
+          if (isInputValid.fullName.isValid && isInputValid.email.isValid && isInputValid.password.isValid) {
+
+
+            setStep(step + 1);
+
+          }
+          break;
+        case 2:
+          if (isInputValid.dob.isValid && isInputValid.username.isValid && isInputValid.gender.isValid) {
+            setStep(step + 1);
+          }
+          break;
+        case 3:
+          // console.log('Step 3 validation:', isInputValid.mobileNumber);
+          // if (isInputValid.mobileNumber) {
+          //   setStep(step + 1);
+          // }
+          break;
+        default:
+          break;
+      }
     } else {
-      // Handle form submission when on the last step
       handleSubmit();
     }
   };
+
 
   const handlePrevStep = () => {
     if (step > 1) {
@@ -83,16 +149,38 @@ const Register = ({ navigation }: { navigation: any }): React.JSX.Element => {
     }
   };
 
+
+  const handleverification = async () => {
+    setIsLoading(true);
+    if (otp.length == 4) {
+      console.log('verifying otp')
+      let user = new User()
+      const otpByServer = await user.verifyEmail(email);
+      console.log(otpByServer);
+      if (otp == otpByServer.toString()) {
+        setVerifyOtp({
+          showOtpField: false,
+          isVerfied: true
+        })
+      } else {
+        Alert.alert(strings.title(appName), "Incorrect OTP")
+      }
+    }
+  }
+
   const handleVerify = () => {
-    // Handle phone number verification here
-    // You can access the phone number from the mobileNumber state variable
-    if (mobileNumber.length == 10) {
+
+    if (isInputValid.email.isValid) {
       setVerifyOtp({
         showOtpField: true,
         isVerfied: false
       })
-    }else{
-      Alert.alert(strings.title(appName),"Please enter valid phone number")
+
+
+
+
+    } else {
+      Alert.alert(strings.title(appName), "Please a enter valid email")
     }
   }
   const handleSubmit = () => {
@@ -104,7 +192,6 @@ const Register = ({ navigation }: { navigation: any }): React.JSX.Element => {
         password,
         gender,
         dob,
-        phone: mobileNumber,
         username,
 
 
@@ -158,7 +245,7 @@ const Register = ({ navigation }: { navigation: any }): React.JSX.Element => {
                 color: Colors.inputColor,
                 marginBottom: 40,
 
-              }}>Enter your phone number & join us now.</Text>
+              }}>Select your profile pic.</Text>
             </>
           )
         }
@@ -167,20 +254,31 @@ const Register = ({ navigation }: { navigation: any }): React.JSX.Element => {
 
           <View>
             <Text style={[styles.label, {
-              color: isInputValid.fullName ? Colors.inputColor : 'red'
+              color: isInputValid.fullName.isValid ? Colors.inputColor : 'red'
             }]}>{
-                isInputValid.fullName ? "Full Name:" : "Please enter valid name"
+                isInputValid.fullName.isValid ? "Full Name:" : isInputValid.fullName.message
               }</Text>
             <TextInput
               value={fullName}
               onChangeText={(text) => {
                 setFullName(text);
                 try {
-                  RegisterSchema.validateSync({ fullName: text }, { abortEarly: false });
-
-                  setIsInputValid((prev) => ({ ...prev, fullName: true }));
+                  // RegisterSchema.validateSync({ fullName: text }, { abortEarly: false });
+                  yup.string().required().min(3).max(50).matches(/^[a-zA-Z]+(([',. -][a-zA-Z ])?[a-zA-Z]*)*$/, 'Please enter valid name').validateSync(text, { abortEarly: false })
+                  setIsInputValid((prev) => ({
+                    ...prev, fullName: {
+                      isValid: true,
+                      message: "",
+                    }
+                  }));
                 } catch (error) {
-                  setIsInputValid({ ...isInputValid, fullName: false });
+                  console.log(error);
+                  setIsInputValid({
+                    ...isInputValid, fullName: {
+                      isValid: false,
+                      message: 'Not a valid name',
+                    }
+                  });
 
                 }
 
@@ -190,33 +288,106 @@ const Register = ({ navigation }: { navigation: any }): React.JSX.Element => {
               cursorColor={Colors.blue}
 
             />
-            <Text style={[styles.label, {
-              color: isInputValid.email ? Colors.inputColor : 'red'
-            }]}>{
-                isInputValid.email ? "Email:" : "Please enter valid email"
 
-              }</Text>
-            <TextInput
-              value={email}
-              onChangeText={(text) => {
-                setEmail(text);
-                try {
-                  RegisterSchema.validateSync({ email: text }, { abortEarly: false });
-                  setIsInputValid((prev) => ({ ...prev, email: true }));
-                } catch (error) {
-                  setIsInputValid((prev) => ({ ...prev, email: false }));
 
+            <View>
+              <Text style={[styles.label, {
+                color: isInputValid.email.isValid ? Colors.inputColor : 'red'
+              }]}>{
+                  isInputValid.email.isValid ? "Email Address:" : isInputValid.email.message
+                }</Text>
+              <View style={styles.phoneConatiner}>
+                <TextInput
+                  value={email}
+                  onChangeText={(text) => {
+                    setEmail(text)
+                    try {
+                      yup.string().required().email().validateSync(text, { abortEarly: false })
+                      setIsInputValid((prev) => ({
+                        ...prev, email: {
+                          isValid: true,
+                          message: "",
+                        }
+                      }));
+
+                    } catch (error) {
+                      setIsInputValid((prev) => ({
+                        ...prev, email: {
+                          isValid: false,
+                          message: 'Not a valid email address',
+                        }
+
+                      }));
+
+                    }
+                  }}
+                  placeholder="Email Address"
+                  style={[styles.input, { flex: 1, marginRight: 10, letterSpacing: 1 }]}
+                  cursorColor={Colors.blue}
+                  keyboardType='email-address'
+                  maxLength={120}
+                />
+                {
+                  !verifyOtp.showOtpField && (
+                    <TouchableOpacity style={styles.verifyBtn} onPress={handleVerify}>
+                      <Text style={{ color: Colors.blue }}>Verify</Text>
+                    </TouchableOpacity>
+                  )
                 }
-              }}
-              placeholder="Enter your email"
-              style={styles.input}
-              cursorColor={Colors.blue}
 
-            />
+              </View>
+              {
+                verifyOtp.showOtpField && isInputValid.email.isValid ? (
+                  <>
+                    <Text style={[styles.label, {
+                      color: isInputValid ? Colors.inputColor : 'red'
+                    }]}>OTP:</Text>
+                    <View style={styles.phoneConatiner}>
+
+                      <TextInput
+                        value={otp}
+                        onChangeText={(text) => {
+                          setOtp(text)
+                        }}
+                        placeholder="Enter 4-digit OTP here"
+                        style={[styles.input, { flex: 1, marginRight: 10 }]}
+                        cursorColor={Colors.blue}
+                        keyboardType="numeric"
+                        maxLength={4}
+
+
+                      />
+                      {
+                        verifyOtp.showOtpField && (
+                          <TouchableOpacity disabled={isLoading} style={styles.verifyBtn} onPress={handleverification}>
+                            <Text style={{ color: Colors.blue }}> {isLoading?'Verifying..':'Verify'} </Text>
+                          </TouchableOpacity>
+                        )
+                      }
+                    </View>
+                  </>
+                ) : (
+                  <>
+                    <Text style={{
+                      fontSize: 14,
+                      color: Colors.inputColor,
+                      marginBottom: 15,
+
+                    }}>
+                      Please click verify button, we will send you a 4-digit OTP to verify your email.
+                    </Text>
+                  </>
+                )
+              }
+            </View>
+
+
+
+
             <Text style={[styles.label, {
-              color: isInputValid.password ? Colors.inputColor : 'red'
+              color: isInputValid.password.isValid ? Colors.inputColor : 'red'
             }]}>{
-                isInputValid.password ? "Password:" : "Please enter valid password"
+                isInputValid.password.isValid ? "Password:" : isInputValid.password.message
 
 
               }</Text>
@@ -225,15 +396,28 @@ const Register = ({ navigation }: { navigation: any }): React.JSX.Element => {
               onChangeText={(text) => {
                 setPassword(text)
                 try {
-                  RegisterSchema.validateSync({ password: text }, { abortEarly: false });
-                  setIsInputValid((prev) => ({ ...prev, password: true }));
+                  // passowrd should conatinas atleast one uppercase, one lowercase, one number and one special character
+                  yup.string().required().min(8).matches(/^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*[a-zA-Z]).{8,}$/gm, 'Password should contain atleast one uppercase, one lowercase, one number and one special character').validateSync(text, { abortEarly: false })
+
+
+                  setIsInputValid((prev) => ({
+                    ...prev, password: {
+                      isValid: true,
+                      message: "",
+                    }
+                  }));
 
                 } catch (error) {
-                  setIsInputValid((prev) => ({ ...prev, password: false }));
+                  setIsInputValid((prev) => ({
+                    ...prev, password: {
+                      isValid: false,
+                      message: 'Password should contain atleast one uppercase, one lowercase, one number and one special character'
+                    }
+                  }));
 
                 }
               }}
-              placeholder="Enter your password"
+              placeholder="Set your password"
               secureTextEntry
               style={styles.input}
               cursorColor={Colors.blue}
@@ -246,9 +430,9 @@ const Register = ({ navigation }: { navigation: any }): React.JSX.Element => {
         {step === 2 && (
           <View>
             <Text style={[styles.label, {
-              color: isInputValid.dob ? Colors.inputColor : 'red'
+              color: isInputValid.dob.isValid ? Colors.inputColor : 'red'
             }]}>{
-                isInputValid.dob ? "Date of Birth(DD - MM - YYYY) :" : "Please enter valid date of birth"
+                isInputValid.dob.isValid ? "Date of Birth(DD - MM - YYYY) :" : isInputValid.dob.message
 
 
               }</Text>
@@ -270,7 +454,7 @@ const Register = ({ navigation }: { navigation: any }): React.JSX.Element => {
               cursorColor={Colors.blue}
             /> */}
             <TouchableOpacity onPress={() => setOpenDatePicker(true)} style={[styles.input, { justifyContent: 'center' }]} >
-              <Text style={{ color: Colors.inputColor }}>{parseDate(dob)}</Text>
+              <Text style={{ color: Colors.inputColor, marginBottom: 10 }}>{parseDate(dob)}</Text>
             </TouchableOpacity>
 
             <DatePicker
@@ -282,11 +466,21 @@ const Register = ({ navigation }: { navigation: any }): React.JSX.Element => {
               onConfirm={(date) => {
                 setDob(date.toISOString())
                 try {
-                  RegisterSchema.validateSync({ dob: date.toString() }, { abortEarly: false });
-                  setIsInputValid((prev) => ({ ...prev, dob: true }));
+                  yup.date().required().max(new Date(new Date().setFullYear(new Date().getFullYear() - 16))).min(new Date(new Date().setFullYear(new Date().getFullYear() - 70))).validateSync(date, { abortEarly: false })
+                  setIsInputValid((prev) => ({
+                    ...prev, dob: {
+                      isValid: true,
+                      message: "",
+                    }
+                  }));
 
                 } catch (error) {
-                  setIsInputValid((prev) => ({ ...prev, dob: false }));
+                  setIsInputValid((prev) => ({
+                    ...prev, dob: {
+                      isValid: false,
+                      message: 'You must be atleast 16 years old'
+                    }
+                  }));
 
                 }
                 setOpenDatePicker(false)
@@ -308,13 +502,13 @@ const Register = ({ navigation }: { navigation: any }): React.JSX.Element => {
               textColor={Colors.inputColor}
               style={{ marginBottom: 20 }}
             />
-            
+
 
             <Text style={[styles.label, {
-              color: isInputValid.gender ? Colors.inputColor : 'red'
+              color: isInputValid.gender.isValid ? Colors.inputColor : 'red'
             }]}>
               {
-                isInputValid.gender ? "Gender" : "Please select you gender"
+                isInputValid.gender.isValid ? "Gender" : isInputValid.gender.message
               }
             </Text>
             {/* <TextInput
@@ -335,7 +529,7 @@ const Register = ({ navigation }: { navigation: any }): React.JSX.Element => {
               cursorColor={Colors.blue}
             /> */}
             <RNPickerSelect
-            style={[styles.input,{marginTop:10,borderWidth:0}]}
+              style={[styles.input, { marginTop: 10, borderWidth: 0 }]}
               items={genders}
               open={openGender}
               placeholder='Select your gender'
@@ -345,32 +539,53 @@ const Register = ({ navigation }: { navigation: any }): React.JSX.Element => {
               setValue={(text) => {
                 setGender(text);
                 try {
-                  RegisterSchema.validateSync({ gender: text }, { abortEarly: false });
-                  setIsInputValid((prev) => ({ ...prev, gender: true }));
+                  yup.string().required().validateSync(text, { abortEarly: false })
+                  setIsInputValid((prev) => ({
+                    ...prev, gender: {
+                      isValid: true,
+                      message: "",
+                    }
+                  }));
                 } catch (error) {
-                  setIsInputValid((prev) => ({ ...prev, gender: false }));
+                  setIsInputValid((prev) => ({
+                    ...prev, gender: {
+                      isValid: false,
+                      message: 'Gender is required'
+                    }
+                  }));
                 }
               }}
               multiple={false} // Add the 'multiple' property
               value={gender} // Add the 'value' property
             />
-   
+
 
             <Text style={[styles.label, {
-              color: isInputValid.username ? Colors.inputColor : 'red'
+              color: isInputValid.username.isValid ? Colors.inputColor : 'red'
             }]}>{
-                isInputValid.username ? "Username:" : "Please enter valid username"
+                isInputValid.username.isValid ? "Username:" : isInputValid.username.message
               }</Text>
             <TextInput
               value={username}
               onChangeText={(text) => {
                 setUsername(text)
                 try {
-                  RegisterSchema.validateSync({ username: text }, { abortEarly: false });
-                  setIsInputValid((prev) => ({ ...prev, username: true }));
+                  yup.string().required().min(3).max(20).matches(/^[a-zA-Z0-9]+$/, 'Please enter valid username').validateSync(text, { abortEarly: false })
+                  setIsInputValid((prev) => ({
+                    ...prev, username: {
+                      isValid: true,
+                      message: "",
+                    }
+                  }));
 
                 } catch (error) {
-                  setIsInputValid((prev) => ({ ...prev, username: false }));
+                  setIsInputValid((prev) => ({
+                    ...prev, username: {
+                      isValid: false,
+                      message: 'Username should contain only letters and numbers',
+
+                    }
+                  }));
 
                 }
               }}
@@ -383,78 +598,45 @@ const Register = ({ navigation }: { navigation: any }): React.JSX.Element => {
         )}
 
         {step === 3 && (
-          <View>
-            <Text style={[styles.label, {
-              color: isInputValid.mobileNumber ? Colors.inputColor : 'red'
-            }]}>{
-                isInputValid.mobileNumber ? "Phone Number:" : "Please enter valid phone number"
-              }</Text>
-            <View style={styles.phoneConatiner}>
-              <TextInput
-                value={mobileNumber}
-                onChangeText={(text) => {
-                  setMobileNumber(text)
-                  try {
-                    RegisterSchema.validateSync({ phone: text }, { abortEarly: false });
-                    setIsInputValid((prev) => ({ ...prev, mobileNumber: true }));
+          <>
+            <SelectFile
+              fileType={fileTypes.image}
+              onSelect={(file) => {
+                setProfileImage(file[0])
+              }}
+              onCancel={() => {
 
-                  } catch (error) {
-                    setIsInputValid((prev) => ({ ...prev, mobileNumber: true }));
+              }}
+            >
+              <View style={[styles.selectProfile]}>
+                {
+                  (profileImage.uri) ? (
+                    <Image
+                      style={styles.selectProfileImage}
+                      source={{ uri: profileImage.uri }}
+                    />
+                  ) : (
+                    <>
+                      <Image
+                        style={styles.selectProfileImage}
+                        source={(gender == 'female') ? require('../assets/images/woman.png') : require('../assets/images/man.png')}
+                      />
+                      <Icon style={styles.selectIcon} name='add' size={40} color={Colors.inputColor} />
 
-                  }
-                }}
-                placeholder="Enter your phone number here"
-                style={styles.input}
-                cursorColor={Colors.blue}
-                keyboardType='phone-pad'
-                maxLength={10}
-              />
-              <TouchableOpacity onPress={handleVerify} style={styles.verifyBtn}>
-                <Text style={{ color: Colors.blue, fontWeight: 'bold' }}>Verify</Text>
-              </TouchableOpacity>
-            </View>
-            {
-              verifyOtp.showOtpField ? (
-                <>
-                  <Text style={[styles.label, {
-                    color: isInputValid ? Colors.inputColor : 'red'
-                  }]}>OTP:</Text>
-                  <TextInput
-                    value={otp}
-                    onChangeText={setOtp}
-                    placeholder="Enter 4-digit OTP here"
-                    style={[styles.input, { letterSpacing: 5 }]}
-                    cursorColor={Colors.blue}
-                    keyboardType="numeric"
-                    maxLength={4}
+                    </>
+                  )
+                }
 
 
-                  />
-                </>
-              ) : (
-                <>
-                  <Text>
-                    Please click verify button, we will send you a 4-digit OTP to verify your phone number.
-                  </Text>
-                </>
-              )
-            }
-          </View>
+              </View>
+            </SelectFile>
+          </>
         )}
 
 
         <View style={styles.buttonContainer}>
 
-          <TouchableOpacity style={styles.btn} onPress={
-            () => {
-              if (step < 3) {
-                setStep(step + 1);
-              } else {
-                // Handle form submission when on the last step
-                handleSubmit();
-              }
-            }
-          }>
+          <TouchableOpacity style={styles.btn} onPress={handleNextStep}>
             <Text style={{ color: 'white', fontSize: 18, fontWeight: 'bold' }}>{
               step < 3 ? "Next" : "Submit"
             }</Text>
@@ -517,11 +699,15 @@ const styles = StyleSheet.create({
     color: Colors.inputColor
   },
   input: {
-    padding: 10,
+
     fontSize: 16,
     marginBottom: 20,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.inputColor,
+    borderColor: '#d6d8d6',
+    borderRadius: 5,
+    color: Colors.inputColor,
+    letterSpacing: 1,
+    fontWeight: 'bold',
 
 
   },
@@ -529,20 +715,45 @@ const styles = StyleSheet.create({
     position: 'relative',
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center'
+    alignItems: 'center',
   },
   verifyBtn: {
     backgroundColor: Colors.bgApp,
     padding: 10,
     borderRadius: 5,
-    position: 'absolute',
+    // position: 'absolute',
     right: 0,
-    top: -30
+    top: -10
   },
   buttonContainer: {
     marginTop: 20,
 
   },
+  selectProfile: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: Colors.inputColor,
+    borderStyle: 'dashed',
+    padding: 20,
+    borderRadius: 10,
+    marginBottom: 20
+  },
+  selectProfileImage: {
+    width: 200,
+    height: 200,
+    resizeMode: 'contain',
+    marginRight: 20
+  },
+  selectIcon: {
+    marginLeft: -80,
+    color: Colors.blueLight,
+    backgroundColor: Colors.primary,
+    borderRadius: 50,
+    marginBottom: -150
+  }
+
 });
 
 export default Register;
